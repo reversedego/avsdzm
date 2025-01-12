@@ -78,16 +78,23 @@ def Funk(n):
 
 # RK45 k_n koeficientu aprēķināšanas funkcija
 def k(n, h):
-    FiCos = np.cos(Fi(n, h))
+    modarr = np.linalg.norm(n)
+    modhArr = np.linalg.norm(h)
+    FiCos = np.dot(n / modarr, h / modhArr) # iepriekšējā versijā šeit bija np.cos(np.arccos(...)) 
     tetaCos = np.cos(Teta(FiCos))
     w_a = w_h / att
     return (w_a * tetaCos ** 2 / (FiCos + H * tetaCos)) * (h - n * FiCos)
 
-def Fi(arr, hArr):
-    # moduļu aprēķināšanu var veikt ar iebūvēto funkciju
-    modarr = np.linalg.norm(arr)
-    modhArr = np.linalg.norm(hArr)
-    return np.arccos(np.dot(arr / modarr, hArr / modhArr)) # noņēmu apaļošanu, dārga operācija
+# Fi funkcija tiek izkļauta no izpildes, tās funkcionalitāti ieliku iekš funkcijas h. 
+# atklāju arī, ka tiek izmantots np.cos(np.arccos(...)) 
+# tāpēc vareja izkļaut arī 4 (četri RK45 koef) x 2 (cos, arccos) papildu funkciju callus katrā iterācijā.
+# izvairamies arī papildu funkcijas Fi callošanas, kas nedaudz samazina overheadu. 
+
+# def Fi(arr, hArr):
+#     # moduļu aprēķināšanu var veikt ar iebūvēto funkciju
+#     modarr = np.linalg.norm(arr)
+#     modhArr = np.linalg.norm(hArr)
+#     return np.arccos(np.dot(arr / modarr, hArr / modhArr)) # noņēmu apaļošanu, dārga operācija
 
 def Teta(fi):
     # 4. kārtas vienādojuma koeficienti izteikti ar zināmiem lielumiem.
@@ -241,7 +248,7 @@ profiler.enable()
 rezultati = AdVictoriam(H, att, alfa_h)
 a = rezultati[0]
 profiler.disable()
-profiler.dump_stats("optimized.prof")
+profiler.dump_stats("more_optimized.prof")
 b = rezultati[1]
 
 n = len(a)
@@ -288,4 +295,4 @@ fig.update_layout(
     showlegend=True
 )
 
-fig.write_html("3dplot_optimiz.html")
+fig.write_html("3dplot_more_optimiz.html")
