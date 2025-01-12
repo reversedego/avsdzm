@@ -49,10 +49,12 @@ def hlauks(alfa_h, moment):
     hx = np.cos(angle_h + w_h * moment) * np.sin(alfa_h)
     hy = np.sin(angle_h + w_h * moment) * np.sin(alfa_h)
     hz = np.cos(alfa_h)
-    return np.array([hx, hy, hz]) / np.sqrt(hx ** 2 + hy ** 2 + hz ** 2)
+    h = np.array([hx, hy, hz])
+    return h/np.linalg.norm(h)
 
-def modulis(vect):
-    return np.sqrt(vect[0] ** 2 + vect[1] ** 2 + vect[2] ** 2)
+# šo funkciju vairs nevajag, izmantoju iebūvēto moduļa aprēķinu 
+# def modulis(vect):
+#     return np.sqrt(vect[0] ** 2 + vect[1] ** 2 + vect[2] ** 2)
 
 # funkcija valīdu sākuma nosacījumu atrašanai. 
 # risināta ar visām pieejamajām optimizācijas metodēm ārpus cikla. 
@@ -82,21 +84,20 @@ def k(n, h):
     return (w_a * tetaCos ** 2 / (FiCos + H * tetaCos)) * (h - n * FiCos)
 
 def Fi(arr, hArr):
-    modarr = np.sqrt(arr[0] ** 2 + arr[1] ** 2 + arr[2] ** 2)
-    modhArr = np.sqrt(hArr[0] ** 2 + hArr[1] ** 2 + hArr[2] ** 2)
-
-    return np.arccos(np.round_(np.dot(arr / modarr, hArr / modhArr), 4))
+    # moduļu aprēķināšanu var veikt ar iebūvēto funkciju
+    modarr = np.linalg.norm(arr)
+    modhArr = np.linalg.norm(hArr)
+    return np.arccos(np.dot(arr / modarr, hArr / modhArr)) # noņēmu apaļošanu, dārga operācija
 
 def Teta(fi):
     # 4. kārtas vienādojuma koeficienti izteikti ar zināmiem lielumiem.
     J = -H
     K = np.cos(fi)
-    L = (np.sin(fi)) ** 2
+    # L netiek izmantots, to var atmest. 
     p = np.array([-J ** 2, -2 * J * K, J ** 2 - 1, 2 * J * K, K ** 2])
-
     # Sakņu atrašana
     saknes = np.roots(p)
-    rsaknes = np.round_(saknes[np.isreal(saknes)].astype(float), 4)
+    rsaknes = saknes[np.isreal(saknes)].astype(float) # noņēmu apaļošanu, dārga operācija
     
     # Inversā substitūcija
     lenki = np.arccos(rsaknes)
@@ -106,18 +107,21 @@ def Teta(fi):
     return lenki[np.argmin(energijas)]
 
 
+# sākotnējā salīdzināšanas funkcijas 
+# implementācija izdarīja trīs salīdzinājumus un tikai tad atgrieza rezultātu.
+# returnu var izdarīt uzreiz, nedefinējot lokālo mainīgo k
+# arī, tā kā mēs sagaidam ka stabilu un nestabilu punktu būs daudz vairāk kā metastabilu,
+# var neizdarīt metastabilitātes salīdzinājumus ar a < x < b
 def probe(x, pertmod):
     if (x > 1.05 * pertmod):
-        koef = 1
         print("UNSTABLE")
+        return 1
+    elif 0.95 * pertmod <= x:
+        print("STABLE")
+        return -1
     else:
-        if ((0.95 * pertmod <= x <= 1.05 * pertmod) == True):
-            koef = 0
-            print("METASTABLE")
-        else:
-            koef = -1
-            print("STABLE")
-    return koef
+        print("METASTABLE")
+        return 0
 
 ninit = np.array([0, 0, 1])
 
@@ -180,12 +184,12 @@ def AdVictoriam(H, att, alfa_h):
     print(nvec)
     print(np.sqrt(nvec[0] ** 2 + nvec[1] ** 2 + nvec[2] ** 2))
 
-    nvec = nvec / modulis(nvec)
+    nvec = nvec / np.linalg.norm(nvec)
     pert = np.cross(-1 * w, hlauks(alfa_h, 0)) / 100
     ndnew = nvec
-    nd[0] = ndnew / np.sqrt(ndnew[0] ** 2 + ndnew[1] ** 2 + ndnew[2] ** 2)
-    ndnewprim = nvec + pert / np.sqrt(pert[0] ** 2 + pert[1] ** 2 + pert[2] ** 2)
-    ndprim[0] = ndnewprim / np.sqrt(ndnewprim[0] ** 2 + ndnewprim[1] ** 2 + ndnewprim[2] ** 2)
+    nd[0] = ndnew / np.linalg.norm(ndnew)
+    ndnewprim = nvec + (pert / np.linalg.norm(pert))
+    ndprim[0] = ndnewprim / np.linalg.norm(ndnewprim)
 
     # Galvenais cikls (NEPERTURBĒTS) :
     nulltime = time.time()
@@ -196,7 +200,7 @@ def AdVictoriam(H, att, alfa_h):
         k4 = k(nd[i] + k3, hlauks(alfa_h, laiks + dt))
 
         nd[i + 1] = nd[i] + dt * (k1 + 2 * (k2 + k3) + k4) / 6
-        nd[i + 1] = nd[i + 1] / modulis(nd[i + 1])
+        nd[i + 1] = nd[i + 1] / np.linalg.norm(nd[i + 1])
         laiks = laiks + dt
     #  Sekundārais cikls (PERTRUBĒTS) :
     laiks = 0
@@ -207,14 +211,14 @@ def AdVictoriam(H, att, alfa_h):
         k4 = k(ndprim[i] + k3, hlauks(alfa_h, laiks + dt))
 
         ndprim[i + 1] = ndprim[i] + dt * (k1 + 2 * (k2 + k3) + k4) / 6
-        ndprim[i + 1] = ndprim[i + 1] / modulis(ndprim[i + 1])
+        ndprim[i + 1] = ndprim[i + 1] / np.linalg.norm(ndprim[i + 1])
         laiks = laiks + dt
     runtime = time.time()
 
     # Starpība starp abiem vektoriem - t.i. vai punkts ir stabils. 
     dev = ndprim - nd
     mod_dev = np.sqrt(dev[:, 0] ** 2 + dev[:, 1] ** 2 + dev[:, 2] ** 2)
-    probe(mod_dev[laiksoli - 1], modulis(pert))
+    probe(mod_dev[laiksoli - 1], np.linalg.norm(pert))
 
     # Informatīvi, lai skatītos vai viss nav salūzis:
     print("nd[i]: ",nd[i])
@@ -237,7 +241,7 @@ profiler.enable()
 rezultati = AdVictoriam(H, att, alfa_h)
 a = rezultati[0]
 profiler.disable()
-profiler.dump_stats("unoptimized.prof")
+profiler.dump_stats("optimized.prof")
 b = rezultati[1]
 
 n = len(a)
@@ -284,4 +288,4 @@ fig.update_layout(
     showlegend=True
 )
 
-fig.write_html("3dplot_unoptimiz.html")
+fig.write_html("3dplot_optimiz.html")
