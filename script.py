@@ -45,12 +45,20 @@ total = omegarange * Hrange * alfarange
 # Ja diference sākumā un beigās ir nodilusi uz ļoti mazu vērtību 
 # t.i. trajektorijas ir saplūdušas - stabils. 
 
+# def hlauks(alfa_h, moment):
+#     hx = np.cos(angle_h + w_h * moment) * np.sin(alfa_h)
+#     hy = np.sin(angle_h + w_h * moment) * np.sin(alfa_h)
+#     hz = np.cos(alfa_h)
+#     h = np.array([hx, hy, hz])
+#     return h/np.linalg.norm(h)
+@jit(nopython=True)
 def hlauks(alfa_h, moment):
     hx = np.cos(angle_h + w_h * moment) * np.sin(alfa_h)
     hy = np.sin(angle_h + w_h * moment) * np.sin(alfa_h)
     hz = np.cos(alfa_h)
     h = np.array([hx, hy, hz])
-    return h/np.linalg.norm(h)
+    norm_h = np.sqrt(np.sum(h ** 2))
+    return h / norm_h
 
 # šo funkciju vairs nevajag, izmantoju iebūvēto moduļa aprēķinu 
 # def modulis(vect):
@@ -58,10 +66,15 @@ def hlauks(alfa_h, moment):
 
 # funkcija valīdu sākuma nosacījumu atrašanai. 
 # risināta ar visām pieejamajām optimizācijas metodēm ārpus cikla. 
+# def Funk(n):
+#     h = hlauks(alfa_h, 0)
+#     p = np.cross(w, n)
+
+#     return p - (k(n, h) / w_h)
+@jit(nopython=True)
 def Funk(n):
     h = hlauks(alfa_h, 0)
     p = np.cross(w, n)
-
     return p - (k(n, h) / w_h)
 
 # Šī visa koda galvenais uzdevums ir iztestēt vienu parametru komplektu, bet ir arī otrs skripts, 
@@ -77,10 +90,19 @@ def Funk(n):
 # rakstīšanas laikā 2017. gadā strādāja savādāk un nederēja šim use-case'am. 
 
 # RK45 k_n koeficientu aprēķināšanas funkcija
+# def k(n, h):
+#     modarr = np.linalg.norm(n)
+#     modhArr = np.linalg.norm(h)
+#     FiCos = np.dot(n / modarr, h / modhArr) # iepriekšējā versijā šeit bija np.cos(np.arccos(...)) 
+#     tetaCos = np.cos(Teta(FiCos))
+#     w_a = w_h / att
+#     return (w_a * tetaCos ** 2 / (FiCos + H * tetaCos)) * (h - n * FiCos)
+@jit(nopython=True)
 def k(n, h):
-    modarr = np.linalg.norm(n)
-    modhArr = np.linalg.norm(h)
-    FiCos = np.dot(n / modarr, h / modhArr) # iepriekšējā versijā šeit bija np.cos(np.arccos(...)) 
+    modarr = np.sqrt(np.sum(n ** 2))
+    modhArr = np.sqrt(np.sum(h ** 2))
+
+    FiCos = np.dot(n / modarr, h / modhArr)
     tetaCos = np.cos(Teta(FiCos))
     w_a = w_h / att
     return (w_a * tetaCos ** 2 / (FiCos + H * tetaCos)) * (h - n * FiCos)
@@ -96,6 +118,7 @@ def k(n, h):
 #     modhArr = np.linalg.norm(hArr)
 #     return np.arccos(np.dot(arr / modarr, hArr / modhArr)) # noņēmu apaļošanu, dārga operācija
 
+@jit(nopython=True)
 def Teta(fi):
     # 4. kārtas vienādojuma koeficienti izteikti ar zināmiem lielumiem.
     J = -H
